@@ -131,7 +131,7 @@
         }
 
         .header::before {
-            content: '🍺 BEM-VINDO A TABERNA FATEC 🍺';
+            content: '🍺 TABERNA FATEC CAMPINAS 🍺';
             position: absolute;
             top: 10px;
             left: 50%;
@@ -905,7 +905,7 @@
                 Gabriela Christani<br>
                 <span style="font-size: 0.75rem; color: #CD853F;">2° SEMESTRE</span>
             </div>
-            <h1>💵Jogo de Moedas</h1>
+            <h1>🪙 Jogo de Moedas</h1>
             <p>Desafie o simulador a acertar sua sequência de moedas!</p>
         </div>
 
@@ -929,6 +929,7 @@
                         <select id="modoJogo">
                             <option value="automatico">Automático (Simulador gera)</option>
                             <option value="manual">Manual (Você escolhe)</option>
+                            <option value="jogador">Jogador vs Máquina (Você descobre)</option>
                         </select>
                     </div>
                 </div>
@@ -937,6 +938,17 @@
                     <p style="width: 100%; text-align: center; margin-bottom: 20px; font-weight: 700; color: #FFD700; font-size: 1.2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">
                         🪙 Escolha Suas Moedas da Sorte 🪙
                     </p>
+                </div>
+
+                <div id="playerGuessSection" style="display: none; margin: 20px 0;">
+                    <h3 style="text-align: center; color: #FFD700; font-size: 1.3rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); margin-bottom: 20px;">
+                        🎯 Faça Sua Tentativa 🎯
+                    </h3>
+                    <div id="playerCoinSelector" class="coin-selector"></div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button class="btn" onclick="submitPlayerGuess()" id="submitGuessBtn" disabled>🎲 Enviar Tentativa</button>
+                        <div id="playerFeedback" style="margin-top: 15px; font-weight: bold; font-size: 1.1rem;"></div>
+                    </div>
                 </div>
 
                 <div style="text-align: center;">
@@ -959,19 +971,29 @@
                         <h4>⚙️ CONFIGURAÇÃO</h4>
                         <ul>
                             <li><strong>Número de Moedas:</strong> Escolha entre 2 a 5 moedas para formar a sequência</li>
-                            <li><strong>Tentativas:</strong> Defina quantas tentativas o simulador terá (1 a 50)</li>
-                            <li><strong>Modo Manual:</strong> Você escolhe a sequência secreta</li>
-                            <li><strong>Modo Automático:</strong> O sistema gera uma sequência aleatória</li>
+                            <li><strong>Tentativas:</strong> Defina quantas tentativas serão permitidas (1 a 50)</li>
+                            <li><strong>Modo Automático:</strong> O sistema gera uma sequência aleatória e o simulador tenta descobrir</li>
+                            <li><strong>Modo Manual:</strong> Você escolhe a sequência secreta e o simulador tenta descobrir</li>
+                            <li><strong>Modo Jogador vs Máquina:</strong> A máquina gera uma sequência secreta e VOCÊ tenta descobrir!</li>
                         </ul>
                     </div>
 
                     <div class="rule-item">
                         <h4>🎲 COMO FUNCIONA</h4>
+                        <p><strong>Modos Automático e Manual:</strong></p>
                         <ol>
                             <li>Uma sequência alvo é definida (mostrada na mesa de sinuca)</li>
                             <li>O simulador faz tentativas aleatórias para descobrir a sequência</li>
                             <li>Cada tentativa mostra quantas moedas foram acertadas na posição correta</li>
                             <li>O jogo termina quando o simulador acerta completamente ou esgota as tentativas</li>
+                        </ol>
+                        <p><strong>Modo Jogador vs Máquina:</strong></p>
+                        <ol>
+                            <li>A máquina gera uma sequência secreta (mostrada como ??? na mesa)</li>
+                            <li>VOCÊ faz tentativas para descobrir a sequência</li>
+                            <li>Selecione suas moedas e clique "Enviar Tentativa"</li>
+                            <li>Receba feedback de quantas moedas acertou na posição correta</li>
+                            <li>Continue tentando até descobrir ou esgotar as tentativas</li>
                         </ol>
                     </div>
 
@@ -1062,17 +1084,27 @@
             jogadaInicial: [],
             tentativas: [],
             gameStartTime: null,
-            isRunning: false
+            isRunning: false,
+            playerGuess: [],
+            playerAttempts: 0,
+            modoJogo: 'automatico'
         };
 
         // Atualiza o seletor de moedas baseado no modo
         document.getElementById('modoJogo').addEventListener('change', function() {
             const coinSelector = document.getElementById('coinSelector');
+            const playerGuessSection = document.getElementById('playerGuessSection');
+            
             if (this.value === 'manual') {
                 coinSelector.style.display = 'block';
+                if (playerGuessSection) playerGuessSection.style.display = 'none';
                 updateCoinSelector();
+            } else if (this.value === 'jogador') {
+                coinSelector.style.display = 'none';
+                if (playerGuessSection) playerGuessSection.style.display = 'none';
             } else {
                 coinSelector.style.display = 'none';
+                if (playerGuessSection) playerGuessSection.style.display = 'none';
             }
         });
 
@@ -1134,6 +1166,171 @@
             } else {
                 gameState.jogadaInicial[index] = type;
             }
+        }
+
+        function selectPlayerCoin(index, type) {
+            // Remove seleção anterior para esta posição
+            const coins = document.querySelectorAll(`[data-player-index="${index}"]`);
+            coins.forEach(coin => coin.classList.remove('selected'));
+            
+            // Adiciona seleção atual
+            const selectedCoin = document.querySelector(`[data-player-index="${index}"][data-type="${type.toLowerCase()}"]`);
+            selectedCoin.classList.add('selected');
+            
+            // Atualiza o array de tentativa do jogador
+            gameState.playerGuess[index] = type;
+            
+            // Verifica se todas as moedas foram selecionadas
+            const allSelected = gameState.playerGuess.length === gameState.numMoedas && 
+                               gameState.playerGuess.every(coin => coin);
+            
+            document.getElementById('submitGuessBtn').disabled = !allSelected;
+        }
+
+        function updatePlayerCoinSelector() {
+            const numMoedas = gameState.numMoedas;
+            const selector = document.getElementById('playerCoinSelector');
+            selector.innerHTML = '';
+            
+            const title = document.createElement('p');
+            title.style.width = '100%';
+            title.style.textAlign = 'center';
+            title.style.marginBottom = '20px';
+            title.style.fontWeight = '700';
+            title.style.color = '#FFD700';
+            title.style.fontSize = '1.2rem';
+            title.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+            title.textContent = '🔍 Tente Descobrir a Sequência Secreta 🔍';
+            selector.appendChild(title);
+            
+            for (let i = 0; i < numMoedas; i++) {
+                const caraOption = document.createElement('div');
+                caraOption.className = 'coin-option cara';
+                caraOption.textContent = 'CARA';
+                caraOption.onclick = () => selectPlayerCoin(i, 'Cara');
+                caraOption.dataset.playerIndex = i;
+                caraOption.dataset.type = 'cara';
+                
+                const coroaOption = document.createElement('div');
+                coroaOption.className = 'coin-option coroa';
+                coroaOption.textContent = 'COROA';
+                coroaOption.onclick = () => selectPlayerCoin(i, 'Coroa');
+                coroaOption.dataset.playerIndex = i;
+                coroaOption.dataset.type = 'coroa';
+                
+                const label = document.createElement('div');
+                label.style.width = '100%';
+                label.style.textAlign = 'center';
+                label.style.margin = '10px 0';
+                label.style.fontWeight = 'bold';
+                label.style.color = '#FFD700';
+                label.textContent = `Moeda ${i + 1}:`;
+                
+                selector.appendChild(label);
+                selector.appendChild(caraOption);
+                selector.appendChild(coroaOption);
+            }
+        }
+
+        function submitPlayerGuess() {
+            if (gameState.playerGuess.length !== gameState.numMoedas || 
+                gameState.playerGuess.some(coin => !coin)) {
+                return;
+            }
+            
+            gameState.playerAttempts++;
+            const acertos = comparaJogadas(gameState.jogadaInicial, gameState.playerGuess);
+            
+            // Adiciona a tentativa do jogador
+            addPlayerAttempt(gameState.playerAttempts, [...gameState.playerGuess], acertos);
+            
+            // Atualiza progresso
+            updateProgress(gameState.playerAttempts, gameState.numTentativas);
+            
+            // Verifica se acertou
+            if (acertos === gameState.numMoedas) {
+                const timeElapsed = Math.round((Date.now() - gameState.gameStartTime) / 1000);
+                showPlayerResult(true, gameState.playerAttempts, timeElapsed);
+                gameState.isRunning = false;
+                document.getElementById('playerGuessSection').style.display = 'none';
+                return;
+            }
+            
+            // Verifica se esgotou as tentativas
+            if (gameState.playerAttempts >= gameState.numTentativas) {
+                const timeElapsed = Math.round((Date.now() - gameState.gameStartTime) / 1000);
+                showPlayerResult(false, gameState.playerAttempts, timeElapsed);
+                gameState.isRunning = false;
+                document.getElementById('playerGuessSection').style.display = 'none';
+                return;
+            }
+            
+            // Feedback para o jogador
+            const feedback = document.getElementById('playerFeedback');
+            feedback.innerHTML = `
+                <span style="color: #FFD700; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
+                    Tentativa ${gameState.playerAttempts}: ${acertos}/${gameState.numMoedas} acertos
+                </span><br>
+                <span style="color: #FFA500; font-size: 0.9rem;">
+                    Restam ${gameState.numTentativas - gameState.playerAttempts} tentativas
+                </span>
+            `;
+            
+            // Reset da seleção
+            gameState.playerGuess = [];
+            const coins = document.querySelectorAll('[data-player-index]');
+            coins.forEach(coin => coin.classList.remove('selected'));
+            document.getElementById('submitGuessBtn').disabled = true;
+        }
+
+        function addPlayerAttempt(attemptNumber, coins, matches, isSuccess = false) {
+            const container = document.getElementById('attemptsContainer');
+            const attemptDiv = document.createElement('div');
+            attemptDiv.className = `attempt ${isSuccess ? 'success' : ''}`;
+            
+            const coinsHtml = coins.map(coin => 
+                `<span class="coin ${coin.toLowerCase()}" style="width: 30px; height: 30px; font-size: 0.8rem; margin: 0 2px;">${coin}</span>`
+            ).join('');
+            
+            attemptDiv.innerHTML = `
+                <div>
+                    <strong>Sua Tentativa ${attemptNumber}:</strong>
+                    <div style="display: inline-flex; align-items: center; margin-left: 10px;">
+                        ${coinsHtml}
+                    </div>
+                </div>
+                <div>
+                    <span style="font-weight: bold; color: ${isSuccess ? '#28a745' : '#ffc107'};">
+                        ${matches}/${gameState.numMoedas} acertos ${isSuccess ? '🎉' : ''}
+                    </span>
+                </div>
+            `;
+            
+            container.appendChild(attemptDiv);
+            attemptDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showPlayerResult(success, attempts, timeElapsed) {
+            const resultSection = document.getElementById('resultSection');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            resultSection.className = `result-section ${success ? 'success' : 'failure'}`;
+            
+            if (success) {
+                resultTitle.textContent = '🎉 Parabéns! Você descobriu a sequência!';
+                resultMessage.textContent = `Você acertou em ${attempts} tentativa(s)! Excelente dedução!`;
+            } else {
+                resultTitle.textContent = '😅 Que pena! Você não conseguiu descobrir!';
+                resultMessage.textContent = `Após ${attempts} tentativas, você não descobriu a sequência secreta.`;
+            }
+            
+            // Atualiza estatísticas
+            document.getElementById('totalAttempts').textContent = attempts;
+            document.getElementById('successRate').textContent = success ? '100%' : '0%';
+            document.getElementById('timeElapsed').textContent = `${timeElapsed}s`;
+            
+            resultSection.style.display = 'block';
         }
 
         function geraMoedas(numMoedas) {
@@ -1226,7 +1423,7 @@
             
             gameState.numMoedas = parseInt(document.getElementById('numMoedas').value);
             gameState.numTentativas = parseInt(document.getElementById('numTentativas').value);
-            const modoJogo = document.getElementById('modoJogo').value;
+            gameState.modoJogo = document.getElementById('modoJogo').value;
             
             // Validações
             if (gameState.numMoedas < 2 || gameState.numMoedas > 5) {
@@ -1234,7 +1431,7 @@
                 return;
             }
             
-            if (modoJogo === 'manual') {
+            if (gameState.modoJogo === 'manual') {
                 if (gameState.jogadaInicial.length !== gameState.numMoedas || 
                     gameState.jogadaInicial.some(coin => !coin)) {
                     alert('Por favor, selecione todas as moedas da sequência!');
@@ -1247,16 +1444,30 @@
             gameState.isRunning = true;
             gameState.gameStartTime = Date.now();
             gameState.tentativas = [];
+            gameState.playerGuess = [];
+            gameState.playerAttempts = 0;
             
             // Mostra a área do jogo
             document.getElementById('gameDisplay').style.display = 'block';
             document.getElementById('resultSection').style.display = 'none';
             document.getElementById('attemptsContainer').innerHTML = '';
+            document.getElementById('playerFeedback').innerHTML = '';
             
-            // Mostra a jogada inicial
-            displayCoins(gameState.jogadaInicial, 'initialCoins');
+            // Mostra a jogada inicial (exceto no modo jogador)
+            if (gameState.modoJogo !== 'jogador') {
+                displayCoins(gameState.jogadaInicial, 'initialCoins');
+            } else {
+                // No modo jogador, mostra pontos de interrogação
+                const hiddenCoins = Array(gameState.numMoedas).fill('?');
+                displayHiddenCoins(hiddenCoins, 'initialCoins');
+                
+                // Mostra a seção de tentativas do jogador
+                document.getElementById('playerGuessSection').style.display = 'block';
+                updatePlayerCoinSelector();
+                return; // Para aqui no modo jogador
+            }
             
-            // Inicia as tentativas do simulador
+            // Inicia as tentativas do simulador (modos automático e manual)
             let tentativa = 1;
             let acertou = false;
             
@@ -1290,6 +1501,21 @@
             gameState.isRunning = false;
         }
 
+        function displayHiddenCoins(coins, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            coins.forEach(() => {
+                const coinElement = document.createElement('div');
+                coinElement.className = 'coin';
+                coinElement.style.background = 'linear-gradient(135deg, #666, #999)';
+                coinElement.style.color = '#FFD700';
+                coinElement.style.fontSize = '2rem';
+                coinElement.textContent = '?';
+                container.appendChild(coinElement);
+            });
+        }
+
         function resetarJogo() {
             gameState = {
                 numMoedas: 3,
@@ -1297,15 +1523,20 @@
                 jogadaInicial: [],
                 tentativas: [],
                 gameStartTime: null,
-                isRunning: false
+                isRunning: false,
+                playerGuess: [],
+                playerAttempts: 0,
+                modoJogo: 'automatico'
             };
             
             document.getElementById('gameDisplay').style.display = 'none';
+            document.getElementById('playerGuessSection').style.display = 'none';
             document.getElementById('numMoedas').value = 3;
             document.getElementById('numTentativas').value = 10;
             document.getElementById('modoJogo').value = 'automatico';
             document.getElementById('coinSelector').style.display = 'none';
             document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('playerFeedback').innerHTML = '';
         }
 
         function toggleRules() {
@@ -1322,5 +1553,5 @@
             }
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97c7a226f4a0da2e',t:'MTc1NzQzMDg0Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97c7c4ba529cda2e',t:'MTc1NzQzMjI2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
