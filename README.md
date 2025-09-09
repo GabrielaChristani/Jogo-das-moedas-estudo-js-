@@ -28,7 +28,7 @@ Clone o repositório:
 
 Bash
 
-git clone https://github.com/SeuUsuario/moedas-simulador.git
+git clone (https://gabrielachristani.github.io/Jogo-das-moedas-estudo-js-/)
 Navegue até a pasta do projeto:
 
 Bash
